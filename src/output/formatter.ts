@@ -33,13 +33,6 @@ export function formatFeedback(comments: Comment[]): string {
         lines.push(`**Lines ${comment.startLine}-${comment.endLine}:**`);
       }
 
-      // Add diff snippet in code block (skip for deleted files)
-      if (comment.diffSnippet) {
-        lines.push('```diff');
-        lines.push(comment.diffSnippet);
-        lines.push('```');
-      }
-
       lines.push(comment.text);
       lines.push('');
     }

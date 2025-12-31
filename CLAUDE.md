@@ -21,6 +21,8 @@ Run a single test:
 npm test -- --testPathPattern="diff.test"
 ```
 
+**Important:** Run `npm test && npm run typecheck` after every change to catch regressions.
+
 ## Local Development
 
 ```bash

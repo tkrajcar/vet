@@ -24,8 +24,6 @@ describe('formatFeedback', () => {
     expect(result).toContain('## Code Review Feedback');
     expect(result).toContain('### src/index.ts');
     expect(result).toContain('**Lines 10-12:**');
-    expect(result).toContain('```diff');
-    expect(result).toContain('+const x = 1;');
     expect(result).toContain('This looks wrong');
   });
 
