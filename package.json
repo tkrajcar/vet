@@ -4,7 +4,8 @@
   "description": "Interactive code review TUI for Claude Code auto-accept mode",
   "type": "module",
   "bin": {
-    "vet": "./bin/vet.js"
+    "vet": "./bin/vet.js",
+    "vet-claude": "./bin/vet-claude"
   },
   "scripts": {
     "build": "tsc",

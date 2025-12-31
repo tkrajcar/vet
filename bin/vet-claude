@@ -1,0 +1,69 @@
+#!/bin/bash
+# vet-claude: Wrapper for running vet TUI within Claude Code via tmux
+#
+# This script handles the tmux orchestration so Claude Code can launch
+# an interactive TUI in a split pane and wait for it to complete.
+
+set -e
+
+# Get the directory where this script lives (resolving symlinks)
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+
+# Capture current working directory - this is where vet should run
+WORK_DIR="$(pwd)"
+
+# Check if we're in tmux
+if [ -z "$TMUX" ]; then
+  echo "Error: Not running inside tmux."
+  echo ""
+  echo "To use /vet with Claude Code, please run Claude in a tmux session:"
+  echo "  1. Start tmux: tmux new -s claude"
+  echo "  2. Run Claude Code inside tmux"
+  echo "  3. Then /vet will work with an interactive split pane"
+  echo ""
+  echo "Or run 'vet' directly (without Claude) for standalone use."
+  exit 1
+fi
+
+# Generate unique channel name for this invocation
+CHANNEL="vet-$$-$RANDOM"
+
+# Determine pane split direction
+# -h = horizontal (side by side), -v = vertical (stacked)
+# Default to horizontal, use -v flag to override
+SPLIT_DIR="-h"
+if [[ "$1" == "-v" ]] || [[ "$1" == "--vertical" ]]; then
+  SPLIT_DIR="-v"
+  shift
+fi
+
+# Create unique temp file for this run's feedback
+FEEDBACK_FILE=$(mktemp /tmp/vet-feedback-XXXXXX.md)
+
+# Build the command to run in the split pane
+VET_CMD="cd '$WORK_DIR' && $SCRIPT_DIR/vet.js --output '$FEEDBACK_FILE' $@; tmux wait-for -S $CHANNEL"
+
+# Split the pane and run vet
+# -p 75 = new pane takes 75% of the space
+tmux split-window $SPLIT_DIR -p 75 "$VET_CMD"
+
+# Wait for vet to complete
+tmux wait-for $CHANNEL
+
+# Output feedback directly to stdout (Claude will see this)
+if [ -f "$FEEDBACK_FILE" ] && [ -s "$FEEDBACK_FILE" ]; then
+  echo "=== VET REVIEW FEEDBACK ==="
+  cat "$FEEDBACK_FILE"
+  echo "=== END FEEDBACK ==="
+else
+  echo "No feedback provided. All changes approved."
+fi
+
+# Cleanup
+rm -f "$FEEDBACK_FILE"
