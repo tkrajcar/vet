@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
-import { generateDiffSnippet } from '../git/diff';
-import type { Hunk, DiffLine } from '../git/types';
+import { generateDiffSnippet } from '../git/diff.js';
+import type { Hunk, DiffLine } from '../git/types.js';
 
 describe('generateDiffSnippet', () => {
   it('generates snippet with add/delete/context lines', () => {
@@ -42,7 +42,7 @@ describe('generateDiffSnippet', () => {
     const lines = result.split('\n');
 
     expect(lines).toHaveLength(3);
-    expect(lines.every(l => l.startsWith('+'))).toBe(true);
+    expect(lines.every((l: string) => l.startsWith('+'))).toBe(true);
   });
 
   it('handles all deletions (deleted file)', () => {
@@ -60,7 +60,7 @@ describe('generateDiffSnippet', () => {
     const lines = result.split('\n');
 
     expect(lines).toHaveLength(2);
-    expect(lines.every(l => l.startsWith('-'))).toBe(true);
+    expect(lines.every((l: string) => l.startsWith('-'))).toBe(true);
   });
 
   it('handles empty hunk', () => {

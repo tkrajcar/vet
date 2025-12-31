@@ -1,8 +1,8 @@
 import React from 'react';
 import { render } from 'ink-testing-library';
 import { jest, describe, it, expect } from '@jest/globals';
-import { Overview } from '../cli/Overview';
-import type { FileDiff } from '../git/types';
+import { Overview } from '../cli/Overview.js';
+import type { FileDiff } from '../git/types.js';
 
 describe('Overview', () => {
   const mockFiles: FileDiff[] = [

@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
-import { formatFeedback, formatAborted } from '../output/formatter';
-import type { Comment } from '../git/types';
+import { formatFeedback, formatAborted } from '../output/formatter.js';
+import type { Comment } from '../git/types.js';
 
 describe('formatFeedback', () => {
   it('returns empty string for no comments', () => {
