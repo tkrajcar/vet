@@ -81,7 +81,8 @@ export const App: React.FC<AppProps> = ({ options, outputPath, onExit }) => {
       return [...filtered, comment];
     });
 
-    advanceToNextHunk();
+    // Pass true to indicate we just added a comment (avoids stale closure issue)
+    advanceToNextHunk(true);
   };
 
   const addLineComment = (text: string, lineNumber: number) => {
@@ -110,7 +111,7 @@ export const App: React.FC<AppProps> = ({ options, outputPath, onExit }) => {
     // Stay on current hunk - don't advance
   };
 
-  const advanceToNextHunk = () => {
+  const advanceToNextHunk = (hasNewComment = false) => {
     const file = files[fileIndex];
 
     if (hunkIndex + 1 < file.hunks.length) {
@@ -119,7 +120,7 @@ export const App: React.FC<AppProps> = ({ options, outputPath, onExit }) => {
       setFileIndex(fileIndex + 1);
       setHunkIndex(0);
     } else {
-      finishReview();
+      finishReview(hasNewComment);
     }
   };
 
@@ -162,8 +163,9 @@ export const App: React.FC<AppProps> = ({ options, outputPath, onExit }) => {
     }
   };
 
-  const finishReview = () => {
-    if (comments.length === 0) {
+  const finishReview = (hasNewComment = false) => {
+    // hasNewComment accounts for state not yet being updated from setComments
+    if (comments.length === 0 && !hasNewComment) {
       setScreen('no-feedback');
     } else {
       setScreen('summary');
