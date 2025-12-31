@@ -15,7 +15,7 @@ type Screen = 'loading' | 'no-changes' | 'overview' | 'review' | 'summary' | 'no
 
 interface AppProps {
   options: DiffOptions;
-  outputPath: string;
+  outputPath?: string;
   onExit: () => void;
 }
 
@@ -44,11 +44,16 @@ export const App: React.FC<AppProps> = ({ options, outputPath, onExit }) => {
   }, []);
 
   const writeFeedback = (content: string) => {
-    const dir = path.dirname(outputPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    if (outputPath) {
+      const dir = path.dirname(outputPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(outputPath, content, 'utf-8');
+    } else {
+      // No output path specified, write to stdout
+      console.log(content);
     }
-    fs.writeFileSync(outputPath, content, 'utf-8');
   };
 
   const getCurrentHunk = (): Hunk | null => {

@@ -12,7 +12,7 @@ const cli = meow(
     --staged          Review staged changes instead of unstaged
     --file <pattern>  Limit review to files matching pattern
     --context <n>     Lines of context around changes (default: 3)
-    --output <path>   Custom output path (default: .claude/review-feedback.md)
+    --output <path>   Write feedback to file (default: stdout)
 
   Examples
     $ vet
@@ -36,7 +36,6 @@ const cli = meow(
       },
       output: {
         type: 'string',
-        default: '.claude/review-feedback.md',
       },
     },
   }

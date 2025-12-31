@@ -197,7 +197,7 @@ vet [options]
 | `--staged` | Review staged changes instead of unstaged |
 | `--file <pattern>` | Limit review to files matching glob pattern |
 | `--context <n>` | Lines of context around changes (default: 3) |
-| `--output <path>` | Custom output path for feedback file |
+| `--output <path>` | Write feedback to file instead of stdout |
 
 ---
 

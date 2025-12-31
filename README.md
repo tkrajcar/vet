@@ -85,17 +85,9 @@ Process the output:
 ## Options
 
 ```bash
-vet --staged           # Review staged changes
-vet --file "src/**"    # Filter by pattern
-vet --context 5        # More context lines
-```
-
-## Standalone Mode
-
-Vet works without Claude too:
-
-```bash
-vet                    # Review changes, writes to .claude/review-feedback.md
+/vet --staged           # Review staged changes
+/vet --file "src/**"    # Filter by pattern
+/vet --context 5        # More context lines
 ```
 
 ## How It Works

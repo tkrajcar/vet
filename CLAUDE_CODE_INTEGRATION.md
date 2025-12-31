@@ -108,10 +108,9 @@ rm -f "$FEEDBACK_FILE"
 
 ### 3. TUI (`bin/vet.js`)
 
-The actual Ink-based TUI. Can be run standalone or via the wrapper:
+The actual Ink-based TUI. The wrapper calls this with `--output` to write feedback to a temp file.
 
-- **Standalone:** `vet` - Works in any terminal
-- **Via Claude:** `vet-claude` - Requires tmux
+Without `--output`, feedback goes to stdout (useful for testing).
 
 ---
 
@@ -168,9 +167,10 @@ vet-claude
 # Should split pane, run vet, output feedback when done
 ```
 
-### Test the TUI standalone
+### Test the TUI directly
 
 ```bash
+# Outputs feedback to stdout (no file written)
 vet
 ```
 
