@@ -101,17 +101,13 @@ export const Summary: React.FC<SummaryProps> = ({
                   ? `line ${comment.lineNumber}`
                   : `hunk ${comment.hunkIndex + 1}`;
 
-              const truncatedText = comment.text.length > 40
-                ? comment.text.slice(0, 40) + '...'
-                : comment.text;
-
               return (
-                <Text key={globalIndex}>
+                <Text key={globalIndex} wrap="wrap">
                   <Text color={isSelected ? 'yellow' : undefined}>
                     {isSelected ? '> ' : '  '}
                   </Text>
                   <Text color="gray">[{locationText}]</Text>
-                  <Text> "{truncatedText}"</Text>
+                  <Text> "{comment.text}"</Text>
                 </Text>
               );
             })}
