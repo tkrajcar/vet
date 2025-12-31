@@ -12,7 +12,7 @@ When using Claude Code in auto-accept mode for speed, developers lose the opport
 
 1. Developer uses Claude Code in auto-accept mode for speed
 2. Claude Code makes changes to multiple files
-3. Developer runs `/vet` command
+3. Developer runs `/vet:start` command
 4. A tmux pane splits open with the Vet TUI (75% width)
 5. Developer reviews changed files, stepping through hunks
 6. Developer adds comments at the hunk level or targets specific lines
@@ -32,33 +32,17 @@ When using Claude Code in auto-accept mode for speed, developers lose the opport
 
 ## Installation
 
-### Step 1: Install the TUI
+```bash
+npm install -g @tkrajcar/vet
+```
+
+Then run Claude Code with the plugin:
 
 ```bash
-npm install -g vet-claude
+claude --plugin-dir /path/to/vet
 ```
 
-### Step 2: Add the Claude Command
-
-Create the file `~/.claude/commands/vet.md`:
-
-```markdown
----
-description: Interactive code review for changes made in auto-accept mode
-allowed-tools: Bash, Read, Edit, Write, Glob, Grep
----
-
-Run this command immediately and wait for it to complete:
-
-!`vet-claude $ARGUMENTS`
-
-After the command completes, process the output:
-- If "=== VET REVIEW FEEDBACK ===" is shown: address each comment with code changes, then summarize
-- If "No feedback provided": acknowledge approval and continue
-- If "ABORTED": do nothing
-```
-
-### Step 3: Run Claude Code in tmux
+### Running Claude Code in tmux
 
 ```bash
 # Start a tmux session
@@ -67,7 +51,7 @@ tmux new -s dev
 # Run Claude Code inside tmux
 claude
 
-# Now /vet will work with split-pane review
+# Now /vet:start will work with split-pane review
 ```
 
 ---
@@ -227,7 +211,7 @@ Claude Code cannot give plugins direct terminal control. Vet works around this u
 └─────────────────────────────────────────────────────────────┘
 ```
 
-1. `/vet` command triggers `vet-claude` wrapper
+1. `/vet:start` command triggers `vet-claude` wrapper
 2. Wrapper creates a tmux split pane (75% width)
 3. Vet TUI runs in the new pane with full terminal control
 4. `tmux wait-for` blocks until Vet exits
@@ -237,8 +221,10 @@ Claude Code cannot give plugins direct terminal control. Vet works around this u
 ### Project Structure
 ```
 vet/
-├── package.json
-├── tsconfig.json
+├── .claude-plugin/
+│   └── plugin.json         # Claude Code plugin manifest
+├── commands/
+│   └── start.md            # /vet:start command definition
 ├── bin/
 │   ├── vet.js              # TUI entry point
 │   └── vet-claude          # tmux wrapper for Claude integration
@@ -258,8 +244,7 @@ vet/
 │   │   └── types.ts        # Diff, Hunk, FileDiff types
 │   └── output/
 │       └── formatter.ts    # Generates feedback markdown
-├── commands/
-│   └── vet.md              # Claude command file (for users to copy)
+├── package.json            # @tkrajcar/vet
 └── README.md
 ```
 

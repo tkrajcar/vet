@@ -21,6 +21,16 @@ Run a single test:
 npm test -- --testPathPattern="diff.test"
 ```
 
+## Local Development
+
+```bash
+npm link                    # Makes npx @tkrajcar/vet use local build
+npm run dev                 # Watch mode in terminal 1
+claude --plugin-dir .       # Test plugin in terminal 2
+```
+
+The `--plugin-dir .` flag loads the plugin from the current directory, picking up changes to skills on restart.
+
 ## Architecture
 
 **Tech Stack:** TypeScript, Ink (React for CLIs), simple-git, parse-diff
@@ -46,17 +56,39 @@ git diff → parse-diff → FileDiff[] → Ink TUI → User comments → Markdow
 
 ## Project Structure
 
-- `bin/vet.js` - Entry point, loads dist/index.js
-- `bin/vet-claude` - Bash wrapper for tmux orchestration
-- `src/index.tsx` - CLI arg parsing with meow
-- `src/cli/App.tsx` - Main component, screen routing, state management
-- `src/cli/HunkReview.tsx` - Primary review interface
-- `src/git/diff.ts` - Git operations using simple-git
-- `src/output/formatter.ts` - Generates markdown feedback for Claude
+```
+vet/
+├── .claude-plugin/
+│   └── plugin.json         # Claude Code plugin manifest
+├── commands/
+│   └── start.md            # /vet:start command definition
+├── bin/
+│   ├── vet.js              # Entry point, loads dist/index.js
+│   └── vet-claude          # Bash wrapper for tmux orchestration
+├── src/
+│   ├── index.tsx           # CLI arg parsing with meow
+│   ├── cli/
+│   │   ├── App.tsx         # Main component, screen routing, state management
+│   │   └── HunkReview.tsx  # Primary review interface
+│   ├── git/
+│   │   └── diff.ts         # Git operations using simple-git
+│   └── output/
+│       └── formatter.ts    # Generates markdown feedback for Claude
+└── package.json            # @tkrajcar/vet
+```
 
-## Claude Command Integration
+## Plugin Distribution (Future)
 
-Users install via `~/.claude/commands/vet.md` which runs `vet-claude $ARGUMENTS`. The wrapper outputs feedback in this format:
+Vet is structured as a Claude Code plugin. The plugin:
+- Bundles the command in `commands/start.md`
+- Invokes the tool via `vet-claude`
+- Accessible as `/vet:start`
+
+Plugin marketplace distribution is planned for the future.
+
+## Output Format
+
+The wrapper outputs feedback in this format:
 ```
 === VET REVIEW FEEDBACK ===
 ## Code Review Feedback

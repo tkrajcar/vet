@@ -1,0 +1,11 @@
+{
+  "name": "vet",
+  "version": "0.1.0",
+  "description": "Interactive code review TUI for Claude Code auto-accept mode",
+  "author": {
+    "name": "Tim Krajcar"
+  },
+  "repository": "https://github.com/tkrajcar/vet",
+  "license": "MIT",
+  "keywords": ["code-review", "git", "diff", "tui"]
+}
