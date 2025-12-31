@@ -61,6 +61,8 @@ if [ -f "$FEEDBACK_FILE" ] && [ -s "$FEEDBACK_FILE" ]; then
   echo "=== VET REVIEW FEEDBACK ==="
   cat "$FEEDBACK_FILE"
   echo "=== END FEEDBACK ==="
+  # Debug: save a copy
+  cp "$FEEDBACK_FILE" /tmp/vet-last-feedback.md
 else
   echo "No feedback provided. All changes approved."
 fi
