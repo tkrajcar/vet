@@ -178,9 +178,8 @@ Shown if user completes review with no comments:
 |-----|--------|
 | `ENTER` or `↓` | No comment, advance to next hunk |
 | `↑` | Go back to previous hunk (allows editing previous comments) |
-| `s` | Skip rest of current file, move to next file |
-| `n` | Jump to next file |
-| `p` | Jump to previous file |
+| `Ctrl+N` | Jump to next file |
+| `Ctrl+P` | Jump to previous file |
 | `ESC` | Exit review early (goes to Summary if comments exist, else confirms exit) |
 | `:N` | Target comment to specific line N (e.g., `:45`) |
 | Any text + `ENTER` | Save as comment for current hunk, advance |

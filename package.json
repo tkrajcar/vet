@@ -1,0 +1,46 @@
+{
+  "name": "vet",
+  "version": "0.1.0",
+  "description": "Interactive code review TUI for Claude Code auto-accept mode",
+  "type": "module",
+  "bin": {
+    "vet": "./bin/vet.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node bin/vet.js",
+    "test": "NODE_OPTIONS='--experimental-vm-modules' jest",
+    "lint": "eslint src --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "claude",
+    "code-review",
+    "git",
+    "diff",
+    "tui",
+    "cli"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ink": "^5.0.1",
+    "meow": "^13.2.0",
+    "parse-diff": "^0.11.1",
+    "react": "^18.3.1",
+    "simple-git": "^3.27.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "ink-testing-library": "^4.0.0",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
