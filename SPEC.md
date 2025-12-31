@@ -13,12 +13,20 @@ When using Claude Code in auto-accept mode for speed, developers lose the opport
 1. Developer uses Claude Code in auto-accept mode for speed
 2. Claude Code makes changes to multiple files
 3. Developer runs `/vet` command
-4. Vet TUI launches in the same terminal
-5. Developer sees an overview of all changed files, then steps through hunks
+4. A tmux pane splits open with the Vet TUI (75% width)
+5. Developer reviews changed files, stepping through hunks
 6. Developer adds comments at the hunk level or targets specific lines
 7. After review, developer sees a summary before submitting
-8. Vet writes feedback to `.claude/review-feedback.md` and exits
-9. Claude automatically reads the feedback and addresses each comment
+8. Vet outputs feedback directly to stdout
+9. Claude reads the feedback and addresses each comment
+
+---
+
+## Requirements
+
+- **tmux** - Required for the split-pane TUI experience
+- **Node.js 18+** - Runtime for the TUI
+- **Claude Code** - Running inside a tmux session
 
 ---
 
@@ -27,7 +35,7 @@ When using Claude Code in auto-accept mode for speed, developers lose the opport
 ### Step 1: Install the TUI
 
 ```bash
-npm install -g @yourorg/vet
+npm install -g vet-claude
 ```
 
 ### Step 2: Add the Claude Command
@@ -40,42 +48,26 @@ description: Interactive code review for changes made in auto-accept mode
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep
 ---
 
-# Vet - Interactive Code Review
+Run this command immediately and wait for it to complete:
 
-Launch the interactive review tool and process any feedback.
+!`vet-claude $ARGUMENTS`
 
-## Step 1: Launch Review TUI
-
-!vet $ARGUMENTS
-
-## Step 2: Process Feedback
-
-Check if `.claude/review-feedback.md` exists.
-
-If it exists and contains feedback:
-1. Read the feedback file carefully
-2. Address each comment by making the requested code changes
-3. After addressing ALL comments, delete the feedback file
-4. Provide a brief summary of what was changed
-
-If the file doesn't exist or is empty:
-- The user approved all changes (no comments were made)
-- Acknowledge this and continue
-
-If the file contains only "ABORTED":
-- The user cancelled the review
-- Delete the file and do not make any changes
+After the command completes, process the output:
+- If "=== VET REVIEW FEEDBACK ===" is shown: address each comment with code changes, then summarize
+- If "No feedback provided": acknowledge approval and continue
+- If "ABORTED": do nothing
 ```
 
-### Step 3: Verify Installation
+### Step 3: Run Claude Code in tmux
 
 ```bash
-# Test the TUI directly
-vet --help
+# Start a tmux session
+tmux new -s dev
 
-# Test the Claude command
-# (in a Claude Code session)
-/vet
+# Run Claude Code inside tmux
+claude
+
+# Now /vet will work with split-pane review
 ```
 
 ---
@@ -205,61 +197,7 @@ vet [options]
 | `--staged` | Review staged changes instead of unstaged |
 | `--file <pattern>` | Limit review to files matching glob pattern |
 | `--context <n>` | Lines of context around changes (default: 3) |
-| `--output <path>` | Custom output path (default: `.claude/review-feedback.md`) |
-
----
-
-## Feedback File Format
-
-Vet writes feedback to `.claude/review-feedback.md`:
-
-```markdown
-## Code Review Feedback
-
-The following comments are from an interactive review of your recent changes. Please address each one:
-
-### src/utils/parser.ts
-
-**Lines 45-47:**
-```diff
-+    if (value !== null) {
-+      return process(value);
-+    }
-```
-This null check seems redundant given the TypeScript types above.
-
-**Line 67 specifically:**
-Consider a more descriptive variable name than `x`.
-
-### src/components/Button.tsx
-
-**Lines 12-20:**
-```diff
-+  const handleClick = () => {
-+    onClick?.(event);
-+  };
-```
-Should this handler be wrapped in useCallback?
-
----
-Please address these comments and let me know when you've made the changes.
-```
-
-### Format Rules
-- Comments grouped by file
-- Each comment includes the diff snippet for context
-- Hunk-level comments show line range: "Lines X-Y"
-- Line-specific comments (from `:N` syntax) show: "Line X specifically"
-- Closing prompt directs Claude to take action
-
-### Exit Conditions
-
-| Condition | File Written | Contents |
-|-----------|--------------|----------|
-| User submits feedback | Yes | Formatted markdown |
-| User completes with no comments | No | (no file created) |
-| User aborts (`q` from summary) | Yes | `ABORTED` |
-| User quits early (`q` from overview) | No | (no file created) |
+| `--output <path>` | Custom output path for feedback file |
 
 ---
 
@@ -269,7 +207,32 @@ Please address these comments and let me know when you've made the changes.
 - **Runtime:** Node.js / TypeScript
 - **TUI Framework:** Ink (React for CLIs)
 - **Git Integration:** simple-git
-- **Diff Parsing:** parse-diff (if simple-git's parsing is insufficient)
+- **Diff Parsing:** parse-diff
+- **Terminal Multiplexing:** tmux (for Claude Code integration)
+
+### How tmux Integration Works
+
+Claude Code cannot give plugins direct terminal control. Vet works around this using tmux:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ tmux session                                                │
+│ ┌─────────────┬───────────────────────────────────────────┐ │
+│ │ Claude Code │ Vet TUI (75% width)                       │ │
+│ │             │                                           │ │
+│ │ /vet        │ ┌─ src/parser.ts [hunk 1/3] ────────────┐ │ │
+│ │ (waiting)   │ │ ...                                   │ │ │
+│ │             │ └───────────────────────────────────────┘ │ │
+│ └─────────────┴───────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+1. `/vet` command triggers `vet-claude` wrapper
+2. Wrapper creates a tmux split pane (75% width)
+3. Vet TUI runs in the new pane with full terminal control
+4. `tmux wait-for` blocks until Vet exits
+5. Feedback is output to stdout for Claude to read
+6. Pane closes, Claude continues
 
 ### Project Structure
 ```
@@ -277,45 +240,28 @@ vet/
 ├── package.json
 ├── tsconfig.json
 ├── bin/
-│   └── vet.js                   # CLI entry point
+│   ├── vet.js              # TUI entry point
+│   └── vet-claude          # tmux wrapper for Claude integration
 ├── src/
-│   ├── index.ts                 # Main entry, arg parsing
+│   ├── index.tsx           # Main entry, arg parsing
 │   ├── cli/
-│   │   ├── App.tsx              # Ink root component, screen router
-│   │   ├── Overview.tsx         # File list screen
-│   │   ├── HunkReview.tsx       # Individual hunk review screen
-│   │   ├── Summary.tsx          # Pre-submit summary screen
+│   │   ├── App.tsx         # Ink root component, screen router
+│   │   ├── Overview.tsx    # File list screen
+│   │   ├── HunkReview.tsx  # Individual hunk review screen
+│   │   ├── Summary.tsx     # Pre-submit summary screen
 │   │   └── components/
 │   │       ├── DiffView.tsx     # Renders diff with line numbers
 │   │       ├── CommentInput.tsx # Text input with :line detection
 │   │       └── Header.tsx       # Progress indicator header
 │   ├── git/
-│   │   ├── diff.ts              # Git diff operations
-│   │   ├── parser.ts            # Diff output parsing
-│   │   └── types.ts             # Diff, Hunk, FileDiff types
-│   ├── state/
-│   │   └── reviewState.ts       # Tracks comments, current position
+│   │   ├── diff.ts         # Git diff operations
+│   │   └── types.ts        # Diff, Hunk, FileDiff types
 │   └── output/
-│       └── formatter.ts         # Generates feedback markdown
+│       └── formatter.ts    # Generates feedback markdown
 ├── commands/
-│   └── vet.md                   # Claude command file (for users to copy)
+│   └── vet.md              # Claude command file (for users to copy)
 └── README.md
 ```
-
-### Git Diff Handling
-
-**MVP Scope:**
-| Change Type | Handling |
-|-------------|----------|
-| Modified files | Standard hunk review |
-| New files | Show as single all-additions hunk |
-| Deleted files | Show as single all-deletions hunk with acknowledgment prompt |
-| Binary files | Detect and display "binary file changed" (no hunk review) |
-
-**Post-MVP:**
-- Renamed/moved files
-- Permission changes
-- Submodule changes
 
 ### Data Flow
 
@@ -327,48 +273,9 @@ vet/
                                                   │
                                                   ▼
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│    Claude    │◀────│  Write to    │◀────│  User adds   │
-│  reads file  │     │  .claude/    │     │   comments   │
+│    Claude    │◀────│   stdout     │◀────│  User adds   │
+│   processes  │     │   output     │     │   comments   │
 └──────────────┘     └──────────────┘     └──────────────┘
-```
-
-### State Management
-
-```typescript
-interface ReviewState {
-  files: FileDiff[];
-  currentFileIndex: number;
-  currentHunkIndex: number;
-  comments: Comment[];
-}
-
-interface Comment {
-  filePath: string;
-  hunkIndex: number;
-  lineNumber?: number;  // If specified via :N syntax
-  text: string;
-  diffSnippet: string;  // For inclusion in feedback
-}
-
-interface FileDiff {
-  path: string;
-  hunks: Hunk[];
-  isBinary: boolean;
-  isNew: boolean;
-  isDeleted: boolean;
-}
-
-interface Hunk {
-  startLine: number;
-  endLine: number;
-  lines: DiffLine[];
-}
-
-interface DiffLine {
-  type: 'add' | 'remove' | 'context';
-  lineNumber: number;
-  content: string;
-}
 ```
 
 ---
@@ -378,13 +285,12 @@ interface DiffLine {
 | Scenario | Behavior |
 |----------|----------|
 | No unstaged changes | Display message: "No changes to review" and exit |
-| All files are binary | Display message: "All changed files are binary" and exit |
-| User quits from overview | Exit immediately, no file written |
-| User escapes with no comments | Confirm exit, no file written |
+| Not running in tmux | Display error with instructions to run Claude in tmux |
+| User quits from overview | Exit immediately, no feedback |
+| User escapes with no comments | Confirm exit, no feedback |
 | User escapes with comments | Go to Summary screen with option to save or discard |
-| User discards from Summary | Write `ABORTED` to feedback file |
-| Very long lines in diff | Truncate with ellipsis, or horizontal scroll (TBD) |
-| Hunk larger than terminal | Vertical scroll within hunk view |
+| User discards from Summary | Output `ABORTED` |
+| Deleted files | Show deletion notice, allow comment |
 
 ---
 

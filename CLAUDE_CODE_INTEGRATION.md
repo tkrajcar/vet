@@ -1,43 +1,55 @@
-# Claude Code Integration Reference
+# Claude Code Integration
 
-> This document summarizes Claude Code's extension capabilities as of late 2025, for reference in future development sessions.
+> Technical documentation for how Vet integrates with Claude Code using tmux.
 
 ---
 
-## How Vet Integrates with Claude Code
+## The Challenge
 
-Vet uses a **hybrid distribution model**:
+Claude Code plugins cannot take over the terminal for interactive TUI applications. When Claude runs a shell command via `!command`, it captures stdout/stderr but doesn't provide PTY access for interactive input.
 
-1. **npm package** (`@yourorg/vet`) - The interactive TUI
-2. **Command file** (`~/.claude/commands/vet.md`) - Registers `/vet` and handles post-TUI processing
+## The Solution: tmux
 
-This approach gives us a clean `/vet` command (no namespace prefix) while keeping the TUI as a standalone, testable npm package.
+Vet uses tmux to work around this limitation:
 
-### Integration Flow
+1. **Split pane** - Create a new tmux pane for the TUI
+2. **Wait mechanism** - Block the Claude command until Vet exits
+3. **Stdout handoff** - Output feedback directly for Claude to read
+
+---
+
+## Integration Flow
 
 ```
-User runs /vet
-       │
-       ▼
-┌─────────────────────────────────────────────────────┐
-│ Claude executes vet.md command                      │
-│                                                     │
-│  1. Runs: !vet $ARGUMENTS                          │
-│     └─► TUI launches, takes over terminal          │
-│         User reviews changes, adds comments         │
-│         TUI writes .claude/review-feedback.md      │
-│         TUI exits                                   │
-│                                                     │
-│  2. Claude continues with command instructions     │
-│     └─► Reads .claude/review-feedback.md           │
-│         Addresses each comment                      │
-│         Deletes feedback file when done             │
-└─────────────────────────────────────────────────────┘
+User runs /vet in Claude Code
+           │
+           ▼
+┌──────────────────────────────────────────────────────────┐
+│ vet.md command file executes                              │
+│                                                          │
+│  !`vet-claude $ARGUMENTS`                                │
+│                                                          │
+│  vet-claude (bash wrapper):                              │
+│  ├─ Creates temp file for feedback                       │
+│  ├─ Splits tmux pane (75% width)                        │
+│  ├─ Runs vet TUI in new pane                            │
+│  ├─ Blocks via `tmux wait-for`                          │
+│  ├─ When vet exits:                                      │
+│  │   ├─ Outputs feedback to stdout                       │
+│  │   └─ Cleans up temp file                             │
+│  └─ Returns to Claude                                    │
+│                                                          │
+│  Claude reads stdout, processes feedback                 │
+└──────────────────────────────────────────────────────────┘
 ```
 
-### The Command File
+---
 
-Located at `~/.claude/commands/vet.md`:
+## Components
+
+### 1. Command File (`commands/vet.md`)
+
+Registers the `/vet` slash command:
 
 ```markdown
 ---
@@ -45,120 +57,140 @@ description: Interactive code review for changes made in auto-accept mode
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep
 ---
 
-# Vet - Interactive Code Review
+Run this command immediately and wait for it to complete:
 
-Launch the interactive review tool and process any feedback.
+!`vet-claude $ARGUMENTS`
 
-## Step 1: Launch Review TUI
+After the command completes, process the output:
+- If "=== VET REVIEW FEEDBACK ===" is shown: address each comment with code changes, then summarize
+- If "No feedback provided": acknowledge approval and continue
+- If "ABORTED": do nothing
+```
 
-!vet $ARGUMENTS
+Key points:
+- Uses `` !`command` `` syntax (with backticks) for inline execution
+- Feedback comes via stdout, not a separate file
+- Claude processes the output immediately after the command
 
-## Step 2: Process Feedback
+### 2. tmux Wrapper (`bin/vet-claude`)
 
-Check if `.claude/review-feedback.md` exists.
+Bash script that orchestrates the tmux interaction:
 
-If it exists and contains feedback:
-1. Read the feedback file carefully
-2. Address each comment by making the requested code changes
-3. After addressing ALL comments, delete the feedback file
-4. Provide a brief summary of what was changed
+```bash
+#!/bin/bash
+# Key operations:
 
-If the file doesn't exist or is empty:
-- The user approved all changes (no comments were made)
-- Acknowledge this and continue
+# 1. Check tmux availability
+if [ -z "$TMUX" ]; then
+  echo "Error: Not running inside tmux."
+  exit 1
+fi
 
-If the file contains only "ABORTED":
-- The user cancelled the review
-- Delete the file and do not make any changes
+# 2. Create unique temp file
+FEEDBACK_FILE=$(mktemp /tmp/vet-feedback-XXXXXX.md)
+
+# 3. Build command with signal
+CHANNEL="vet-$$-$RANDOM"
+VET_CMD="cd '$WORK_DIR' && vet --output '$FEEDBACK_FILE'; tmux wait-for -S $CHANNEL"
+
+# 4. Split pane and run
+tmux split-window -h -p 75 "$VET_CMD"
+
+# 5. Block until vet exits
+tmux wait-for $CHANNEL
+
+# 6. Output feedback to stdout
+cat "$FEEDBACK_FILE"
+
+# 7. Cleanup
+rm -f "$FEEDBACK_FILE"
+```
+
+### 3. TUI (`bin/vet.js`)
+
+The actual Ink-based TUI. Can be run standalone or via the wrapper:
+
+- **Standalone:** `vet` - Works in any terminal
+- **Via Claude:** `vet-claude` - Requires tmux
+
+---
+
+## Feedback Format
+
+Vet outputs structured markdown that Claude can parse:
+
+```markdown
+=== VET REVIEW FEEDBACK ===
+## Code Review Feedback
+
+The following comments are from an interactive review...
+
+### src/utils/parser.ts
+
+**Lines 45-47:**
+```diff
++    if (value !== null) {
+...
+```
+This null check seems redundant.
+
+---
+Please address these comments.
+=== END FEEDBACK ===
+```
+
+Or for no feedback:
+```
+No feedback provided. All changes approved.
+```
+
+Or for abort:
+```
+ABORTED
 ```
 
 ---
 
-## Claude Code Extension Capabilities
+## Debugging
 
-### What Plugins/Commands CAN Do
+### View last feedback sent to Claude
 
-| Capability | How |
-|------------|-----|
-| Custom slash commands | `~/.claude/commands/*.md` for personal, `./.claude/commands/*.md` for project |
-| Run shell commands | `!command` syntax in command files |
-| Reference files | `@filepath` syntax in command files |
-| Specify allowed tools | `allowed-tools` frontmatter |
-| Accept arguments | `$ARGUMENTS`, `$1`, `$2` etc. |
-| Event hooks | `hooks.json` for PreToolUse, PostToolUse, UserPromptSubmit |
-| MCP servers | Custom tools via Model Context Protocol |
-| Skills | Auto-invoked capabilities based on context |
-
-### What Plugins/Commands CANNOT Do
-
-| Capability | Status |
-|------------|--------|
-| Take over terminal with TUI | Not supported (workaround: launch external process) |
-| Inject messages into conversation | Not supported (workaround: file-based handoff) |
-| Control Claude's responses programmatically | Not supported |
-| Interactive stdin during command | Not supported |
-
-### Command File Frontmatter Options
-
-```yaml
----
-description: Short description shown in /help
-allowed-tools: Bash, Read, Edit, Write, Glob, Grep  # Tools Claude can use
-argument-hint: <options>  # Shown in autocomplete
-model: opus  # Optional: force specific model
-disable-model-invocation: false  # If true, just executes, no Claude response
----
+```bash
+cat /tmp/vet-last-feedback.md
 ```
 
-### Command Syntax
+### Test the wrapper directly
 
-| Syntax | Meaning |
-|--------|---------|
-| `!command` | Run shell command |
-| `@filepath` | Include file contents |
-| `$ARGUMENTS` | All arguments passed to command |
-| `$1`, `$2`, etc. | Positional arguments |
+```bash
+# In a tmux session
+vet-claude
+
+# Should split pane, run vet, output feedback when done
+```
+
+### Test the TUI standalone
+
+```bash
+vet
+```
 
 ---
 
-## Plugin System (For Reference)
+## Limitations
 
-If distributing via plugin marketplace (not used by Vet, but documented here):
-
-### Plugin Structure
-
-```
-my-plugin/
-├── .claude-plugin/
-│   └── plugin.json         # Required manifest
-├── commands/               # Slash commands (namespaced)
-├── agents/                 # Subagents
-├── skills/                 # Auto-invoked skills
-├── hooks/                  # Event handlers
-└── .mcp.json              # MCP server config
-```
-
-### Plugin Manifest
-
-```json
-{
-  "name": "plugin-name",
-  "version": "1.0.0",
-  "description": "Brief description"
-}
-```
-
-### Plugin Commands Are Namespaced
-
-Plugin commands use format `/plugin-name:command-name`, which is why Vet uses direct command file distribution instead.
+| Limitation | Workaround |
+|------------|------------|
+| Requires tmux | Document as prerequisite |
+| Can't run in non-tmux terminal | Provide helpful error message |
+| Pane focus may not auto-switch | Click or use tmux prefix + arrow |
 
 ---
 
-## Key Documentation Links
+## Claude Code Extension Points Used
 
-- Slash Commands: https://code.claude.com/docs/en/slash-commands.md
-- Hooks: https://code.claude.com/docs/en/hooks-guide.md
-- Plugins: https://code.claude.com/docs/en/plugins.md
-- Plugins Reference: https://code.claude.com/docs/en/plugins-reference.md
-- Skills: https://code.claude.com/docs/en/skills.md
-- MCP: https://code.claude.com/docs/en/mcp.md
+| Feature | Usage |
+|---------|-------|
+| Slash commands | `~/.claude/commands/vet.md` |
+| Inline bash execution | `` !`vet-claude` `` syntax |
+| stdout capture | Feedback passed directly |
+| allowed-tools | Bash for command execution |
